@@ -73,7 +73,6 @@ def main():
     print("\n=== RAW SCRIPT OUTPUT ===\n")
     print(repr(script))   # shows empty strings or whitespace
 
-
     print("\nConverting to audio...")
     generate_audio(script)
 
