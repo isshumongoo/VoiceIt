@@ -101,6 +101,7 @@ def save_script(script: str, path: Path) -> None:
 
 def generate_audio(script: str, filename: Path, voice_id: str, api_key: str) -> None:
     print("Generating audio with ElevenLabs...")
+    from elevenlabs import ElevenLabs
 
     from elevenlabs import ElevenLabs
 
