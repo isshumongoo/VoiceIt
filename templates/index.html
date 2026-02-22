@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VoiceIt Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>🎙️ VoiceIt Studio</h1>
+      <p>Generate podcast scripts and audio from one clean dashboard.</p>
+
+      <form id="generator-form">
+        <label>Topic <input id="topic" required placeholder="e.g. Building AI products with tiny teams" /></label>
+        <label>Style <input id="style" value="conversational" /></label>
+        <label>Duration (minutes) <input id="duration" type="number" min="1" max="15" value="3" /></label>
+        <label>Ollama Model <input id="model" value="{{ default_model }}" /></label>
+
+        <label class="checkbox">
+          <input id="skip-audio" type="checkbox" />
+          Skip audio generation
+        </label>
+
+        <button type="submit" id="submit-btn">Generate Podcast</button>
+      </form>
+
+      <section id="status"></section>
+
+      <section id="result" class="hidden">
+        <h2>Generated Script</h2>
+        <pre id="script-output"></pre>
+
+        <div class="links">
+          <a id="script-link" target="_blank">Download Script</a>
+          <a id="audio-link" target="_blank">Download Audio</a>
+        </div>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
