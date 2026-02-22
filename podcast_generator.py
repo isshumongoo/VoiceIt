@@ -5,6 +5,7 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
+
 OLLAMA_URL = "http://localhost:11434/api/generate"
 DEFAULT_MODEL = "llama3.2:3b"
 DEFAULT_OUTPUT_DIR = Path("output")
@@ -19,9 +20,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--style", default="conversational", help="Style or vibe for the podcast script.")
     parser.add_argument("--duration-minutes", type=int, default=3, help="Approximate target duration in minutes.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Ollama model name.")
-    parser.add_argument("--script-file", type=Path, help="Optional path to save the generated script as text.")
-    parser.add_argument("--audio-file", type=Path, help="Optional explicit path for generated audio file.")
-    parser.add_argument("--skip-audio", action="store_true", help="Generate only the script and skip ElevenLabs audio output.")
+    parser.add_argument(
+        "--script-file",
+        type=Path,
+        help="Optional path to save the generated script as text.",
+    )
+    parser.add_argument(
+        "--audio-file",
+        type=Path,
+        help="Optional explicit path for generated audio file.",
+    )
+    parser.add_argument(
+        "--skip-audio",
+        action="store_true",
+        help="Generate only the script and skip ElevenLabs audio output.",
+    )
     return parser
 
 
@@ -49,7 +62,11 @@ def build_prompt(topic: str, style: str, duration_minutes: int) -> str:
 
 
 def generate_script(topic: str, style: str, duration_minutes: int, model: str) -> str:
-    payload = {"model": model, "prompt": build_prompt(topic, style, duration_minutes)}
+    payload = {
+        "model": model,
+        "prompt": build_prompt(topic, style, duration_minutes),
+    }
+
     print("Generating script with Ollama...")
     import requests
 
@@ -86,8 +103,14 @@ def generate_audio(script: str, filename: Path, voice_id: str, api_key: str) -> 
     print("Generating audio with ElevenLabs...")
     from elevenlabs import ElevenLabs
 
+    from elevenlabs import ElevenLabs
+
     tts = ElevenLabs(api_key=api_key)
-    audio = tts.text_to_speech.convert(voice_id=voice_id, text=script, model_id=DEFAULT_VOICE_MODEL)
+    audio = tts.text_to_speech.convert(
+        voice_id=voice_id,
+        text=script,
+        model_id=DEFAULT_VOICE_MODEL,
+    )
 
     filename.parent.mkdir(parents=True, exist_ok=True)
     with open(filename, "wb") as file_obj:
@@ -95,31 +118,6 @@ def generate_audio(script: str, filename: Path, voice_id: str, api_key: str) -> 
             file_obj.write(chunk)
 
     print(f"Podcast saved as: {filename}")
-
-
-def generate_podcast(topic: str, style: str = "conversational", duration_minutes: int = 3, model: str = DEFAULT_MODEL,
-                     output_dir: Path = DEFAULT_OUTPUT_DIR, script_file: Path | None = None,
-                     audio_file: Path | None = None, skip_audio: bool = False) -> dict[str, str]:
-    script_path_default, audio_path_default = make_output_paths(topic, output_dir)
-    script_path = script_file or script_path_default
-    audio_path = audio_file or audio_path_default
-
-    script = generate_script(topic=topic, style=style, duration_minutes=duration_minutes, model=model)
-    save_script(script, script_path)
-
-    result = {"script": script, "script_path": str(script_path), "audio_path": ""}
-
-    if skip_audio:
-        return result
-
-    eleven_key = os.getenv("ELEVENLABS_API_KEY")
-    voice_id = os.getenv("VOICE_ID")
-    if not eleven_key or not voice_id:
-        raise RuntimeError("Missing ELEVENLABS_API_KEY or VOICE_ID in environment.")
-
-    generate_audio(script, audio_path, voice_id=voice_id, api_key=eleven_key)
-    result["audio_path"] = str(audio_path)
-    return result
 
 
 def resolve_topic(cli_topic: str | None) -> str:
@@ -139,24 +137,30 @@ def main() -> None:
     if not topic:
         raise SystemExit("Topic cannot be empty.")
 
-    try:
-        result = generate_podcast(
-            topic=topic,
-            style=args.style,
-            duration_minutes=args.duration_minutes,
-            model=args.model,
-            script_file=args.script_file,
-            audio_file=args.audio_file,
-            skip_audio=args.skip_audio,
-        )
-    except Exception as exc:
-        raise SystemExit(str(exc)) from exc
+    script_path_default, audio_path_default = make_output_paths(topic, DEFAULT_OUTPUT_DIR)
+    script_file = args.script_file or script_path_default
+    audio_file = args.audio_file or audio_path_default
 
-    print(f"Done. Script: {result['script_path']}")
-    if result["audio_path"]:
-        print(f"Audio: {result['audio_path']}")
-    else:
-        print("Audio generation skipped.")
+    script = generate_script(
+        topic=topic,
+        style=args.style,
+        duration_minutes=args.duration_minutes,
+        model=args.model,
+    )
+
+    save_script(script, script_file)
+
+    if args.skip_audio:
+        print("Audio generation skipped (--skip-audio).")
+        return
+
+    eleven_key = os.getenv("ELEVENLABS_API_KEY")
+    voice_id = os.getenv("VOICE_ID")
+
+    if not eleven_key or not voice_id:
+        raise SystemExit("Missing ELEVENLABS_API_KEY or VOICE_ID in environment.")
+
+    generate_audio(script, audio_file, voice_id=voice_id, api_key=eleven_key)
 
 
 if __name__ == "__main__":

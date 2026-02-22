@@ -1,39 +1,6 @@
 from pathlib import Path
 
-import podcast_generator as pg
-
-
-def run_generation(topic: str, style: str, duration_minutes: int, model: str, skip_audio: bool, output_dir: Path):
-    """Compatibility wrapper that supports both new and older podcast_generator modules."""
-    if hasattr(pg, "generate_podcast"):
-        return pg.generate_podcast(
-            topic=topic,
-            style=style,
-            duration_minutes=duration_minutes,
-            model=model,
-            output_dir=output_dir,
-            skip_audio=skip_audio,
-        )
-
-    if not hasattr(pg, "generate_script"):
-        raise RuntimeError("podcast_generator.py is missing generate_script/generate_podcast.")
-
-    script_path, audio_path = pg.make_output_paths(topic, output_dir)
-    script = pg.generate_script(topic=topic, style=style, duration_minutes=duration_minutes, model=model)
-    pg.save_script(script, script_path)
-
-    result = {"script": script, "script_path": str(script_path), "audio_path": ""}
-    if skip_audio:
-        return result
-
-    eleven_key = pg.os.getenv("ELEVENLABS_API_KEY")
-    voice_id = pg.os.getenv("VOICE_ID")
-    if not eleven_key or not voice_id:
-        raise RuntimeError("Missing ELEVENLABS_API_KEY or VOICE_ID in environment.")
-
-    pg.generate_audio(script, audio_path, voice_id=voice_id, api_key=eleven_key)
-    result["audio_path"] = str(audio_path)
-    return result
+from podcast_generator import DEFAULT_MODEL, DEFAULT_OUTPUT_DIR, generate_podcast
 
 
 def create_app():
@@ -42,11 +9,11 @@ def create_app():
 
     load_dotenv()
     app = Flask(__name__)
-    app.config["OUTPUT_DIR"] = getattr(pg, "DEFAULT_OUTPUT_DIR", Path("output"))
+    app.config["OUTPUT_DIR"] = DEFAULT_OUTPUT_DIR
 
     @app.get("/")
     def index():
-        return render_template("index.html", default_model=getattr(pg, "DEFAULT_MODEL", "llama3.2:3b"))
+        return render_template("index.html", default_model=DEFAULT_MODEL)
 
     @app.post("/api/generate")
     def api_generate():
@@ -54,20 +21,20 @@ def create_app():
         topic = (payload.get("topic") or "").strip()
         style = (payload.get("style") or "conversational").strip()
         duration = int(payload.get("duration_minutes") or 3)
-        model = (payload.get("model") or getattr(pg, "DEFAULT_MODEL", "llama3.2:3b")).strip()
+        model = (payload.get("model") or DEFAULT_MODEL).strip()
         skip_audio = bool(payload.get("skip_audio", False))
 
         if not topic:
             return jsonify({"error": "Topic is required."}), 400
 
         try:
-            result = run_generation(
+            result = generate_podcast(
                 topic=topic,
                 style=style,
                 duration_minutes=duration,
                 model=model,
-                skip_audio=skip_audio,
                 output_dir=Path(app.config["OUTPUT_DIR"]),
+                skip_audio=skip_audio,
             )
             return jsonify(result)
         except Exception as exc:
